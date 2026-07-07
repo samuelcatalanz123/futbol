@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SUPER FÚTBOL">
+<meta name="theme-color" content="#0a140d">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<link rel="icon" type="image/png" href="./icon-192.png">
+<title>SUPER FÚTBOL — de Samuel</title>
+</head>
+<body>
+<style>
+  :root{
+    --ink:#eef4f0; --dim:#9fb0a6;
+    --you:#2e6bff; --cpu:#e03a3a; --grass1:#2f8a43; --grass2:#2a7d3c;
+    --line:rgba(255,255,255,.75); --panel:rgba(8,20,12,.82); --panelbd:rgba(160,200,170,.2);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+  html,body{height:100%; margin:0; overflow:hidden; overscroll-behavior:none; touch-action:none;
+    background:#0a140d; color:var(--ink); font-family:"Helvetica Neue",Arial,system-ui,sans-serif;}
+  #wrap{position:fixed; inset:0;}
+  canvas{position:absolute; inset:0; width:100%; height:100%; display:block;}
+  #err{display:none;position:absolute;left:8px;right:8px;top:60px;z-index:99;background:#3a0d0d;color:#ffb4b4;padding:10px;border-radius:8px;font:13px monospace;}
+
+  #top{position:absolute; top:0; left:0; right:0; height:52px; display:flex; align-items:center;
+    justify-content:center; gap:16px; z-index:5; pointer-events:none;
+    background:linear-gradient(#0a140dcc,transparent);}
+  .score{font-size:26px; font-weight:900; font-variant-numeric:tabular-nums; letter-spacing:.02em;}
+  .you{color:#7aa2ff;} .cpu{color:#ff8a8a;}
+  .vs{font-size:13px; color:var(--dim); letter-spacing:.2em;}
+  #timer{position:absolute; top:14px; right:14px; font-size:16px; font-weight:800; color:var(--ink);
+    font-variant-numeric:tabular-nums; z-index:5;}
+
+  .act{position:absolute; z-index:6; pointer-events:auto; border:2px solid var(--panelbd);
+    background:var(--panel); color:var(--ink); border-radius:50%; display:grid; place-items:center;
+    backdrop-filter:blur(6px); font-size:26px;}
+  #shootBtn{right:22px; bottom:34px; width:82px; height:82px;}
+  #passBtn{right:118px; bottom:26px; width:58px; height:58px; font-size:20px;}
+  .act:active{transform:scale(.92);}
+
+  .screen{position:absolute; inset:0; z-index:10; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; padding:22px;
+    background:radial-gradient(120% 90% at 50% 25%, rgba(46,139,67,.28), transparent 60%), rgba(6,14,9,.9);}
+  .screen.hide{display:none;}
+  .kick{font-size:13px; letter-spacing:.45em; text-transform:uppercase; color:#7ee08f; margin-bottom:4px;}
+  .title{font-size:clamp(40px,13vw,104px); font-weight:900; line-height:.92; margin:0; text-transform:uppercase;
+    text-wrap:balance; background:linear-gradient(180deg,#fff,#7ee08f 130%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .sub{margin:14px 0 0; color:var(--dim); font-size:15px; max-width:32ch; line-height:1.55;}
+  .sub .name{color:#7aa2ff; font-weight:700;}
+  .big{font-size:clamp(30px,9vw,58px); font-weight:900; margin:2px; text-transform:uppercase;}
+  .cta{margin-top:24px; pointer-events:auto; border:none; cursor:pointer; padding:18px 46px; border-radius:16px;
+    font-size:20px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:#06210f;
+    background:linear-gradient(180deg,#8fe6a2,#3ea85a); box-shadow:0 10px 30px rgba(62,168,90,.4);}
+  .cta:active{transform:translateY(2px);}
+  .help{margin-top:20px; color:var(--dim); font-size:13px; line-height:1.7; max-width:30ch;}
+  .help b{color:var(--ink);}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;}}
+</style>
+
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="err"></div>
+  <div id="top"><span class="score you" id="sYou">0</span><span class="vs" id="vs">TÚ · CPU</span><span class="score cpu" id="sCpu">0</span></div>
+  <div id="timer">2:00</div>
+
+  <button class="act" id="passBtn">👟</button>
+  <button class="act" id="shootBtn">⚽</button>
+
+  <div class="screen" id="menu">
+    <div class="kick">Fútbol arcade</div>
+    <h1 class="title">Super<br>Fútbol</h1>
+    <p class="sub">de <span class="name">SAMUEL</span> · marca más goles que la máquina en 2 minutos.</p>
+    <button class="cta" id="playBtn">Jugar</button>
+    <button class="cta" id="installBtn" style="margin-top:12px;background:linear-gradient(180deg,#6ad0ff,#2a86ff);color:#04121f;">📲 Instalar app</button>
+    <div class="help">
+      <b>Un dedo</b> para mover a tu jugador (controlas al azul más cercano al balón).<br>
+      Botón <b>⚽ CHUTAR</b> a portería · <b>👟 PASE</b> a un compañero.<br>
+      Roba el balón acercándote al rival.
+    </div>
+  </div>
+
+  <div class="screen hide" id="goal"><div class="kick" id="goalKick">GOOOL</div><h1 class="big" id="goalTxt">¡GOL!</h1></div>
+
+  <div class="screen hide" id="over">
+    <div class="kick" id="overKick">Final</div>
+    <h1 class="big" id="overTxt">Final</h1>
+    <p class="sub" id="overSub"></p>
+    <button class="cta" id="againBtn">Jugar otra vez</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+window.addEventListener('error', function(ev){ try{ var e=document.getElementById('err');
+  if(e){ e.style.display='block'; e.textContent='⚠ '+(ev.message||'error')+' L'+(ev.lineno||''); } }catch(_){}});
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const $=id=>document.getElementById(id);
+let W=0,H=0,DPR=1;
+function resize(){ DPR=Math.min(window.devicePixelRatio||1,2); W=window.innerWidth; H=window.innerHeight;
+  cv.width=Math.floor(W*DPR); cv.height=Math.floor(H*DPR); ctx.setTransform(DPR,0,0,DPR,0,0); computeField(); }
+window.addEventListener('resize', resize);
+
+const TAU=Math.PI*2, clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), rnd=(a,b)=>a+Math.random()*(b-a);
+const dist2=(ax,ay,bx,by)=>{const dx=ax-bx,dy=ay-by;return dx*dx+dy*dy;};
+
+// ---- audio (pitidos) ----
+let AC=null, muted=false;
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } return AC; }
+function beep(freq,dur,vol=0.2,type='square',slide=null){ if(muted)return; const a=ac(); if(!a)return;
+  const o=a.createOscillator(),g=a.createGain(); o.type=type; o.frequency.value=freq;
+  if(slide)o.frequency.exponentialRampToValueAtTime(slide,a.currentTime+dur);
+  g.gain.value=vol; g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+dur);
+  o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime+dur); }
+const SFX={ kick:()=>beep(320,0.09,0.22,'square',140), pass:()=>beep(260,0.08,0.16,'square',180),
+  goal:()=>{beep(523,0.15,0.25);setTimeout(()=>beep(659,0.15,0.25),120);setTimeout(()=>beep(784,0.25,0.25),260);},
+  whistle:()=>{beep(1800,0.18,0.18,'square',1600);setTimeout(()=>beep(1800,0.12,0.18,'square'),200);},
+  wall:()=>beep(200,0.05,0.1) };
+
+// ---- campo ----
+let field={x:0,y:0,w:0,h:0}, goalW=0, GOAL_TOP_Y=0, GOAL_BOT_Y=0;
+function computeField(){
+  const top=56, mb=Math.min(W,H)*0.05;
+  field.x=mb; field.y=top+mb; field.w=W-mb*2; field.h=H-top-mb*2;
+  goalW=field.w*0.34; GOAL_TOP_Y=field.y; GOAL_BOT_Y=field.y+field.h;
+}
+function inGoalMouth(x){ return x>field.x+(field.w-goalW)/2 && x<field.x+(field.w+goalW)/2; }
+const oppGoal=()=>({x:field.x+field.w/2, y:field.y-6});          // portería CPU (arriba) = a la que tú marcas
+const ownGoal=()=>({x:field.x+field.w/2, y:field.y+field.h+6});   // tu portería (abajo)
+
+// ---- estado ----
+let state='menu', players=[], ball=null, controlled=null, scoreYou=0, scoreCpu=0, timeLeft=120, lastTime=0;
+let bannerTxt='', pauseUntil=0;
+
+const FORM=[  // fx (ancho 0..1), fy (0=arriba/portería rival, 1=abajo/tu portería), role
+  [0.5,0.94,'gk'], [0.28,0.74,'def'], [0.72,0.74,'def'], [0.5,0.55,'mid'], [0.5,0.33,'fwd'],
+];
+function homePos(team,i){ const f=FORM[i]; const fy=team==='you'?f[1]:1-f[1];
+  return { x:field.x+f[0]*field.w, y:field.y+fy*field.h, role:f[2] }; }
+function makeTeam(team){ const arr=[]; for(let i=0;i<FORM.length;i++){ const h=homePos(team,i);
+  arr.push({x:h.x,y:h.y,hx:h.x,hy:h.y,vx:0,vy:0,r:Math.min(W,H)*0.024,team,role:h.role,ang:team==='you'?-Math.PI/2:Math.PI/2}); } return arr; }
+function resetPositions(){ for(let t=0;t<2;t++){ const team=t?'cpu':'you';
+  for(let i=0;i<FORM.length;i++){ const h=homePos(team,i), p=players[t*FORM.length+i];
+    p.x=h.x; p.y=h.y; p.vx=p.vy=0; } }
+  ball.x=field.x+field.w/2; ball.y=field.y+field.h/2; ball.vx=ball.vy=0; ball.owner=null; ball.lastShot=0; ball.lastShooter=null; }
+function newMatch(){ players=[...makeTeam('you'), ...makeTeam('cpu')];
+  ball={x:0,y:0,vx:0,vy:0,r:Math.min(W,H)*0.014,owner:null,lastShot:0,lastShooter:null};
+  scoreYou=0; scoreCpu=0; timeLeft=120; bannerTxt=''; pauseUntil=0; resetPositions(); updateHUD(); }
+
+function updateHUD(){ $('sYou').textContent=scoreYou; $('sCpu').textContent=scoreCpu;
+  const m=Math.floor(timeLeft/60), s=Math.floor(timeLeft%60); $('timer').textContent=m+':'+(s<10?'0':'')+s; }
+
+// ---- input ----
+const move={id:null,ox:0,oy:0,cx:0,cy:0}; const MAXR=64;
+function stickVec(){ let dx=move.cx-move.ox,dy=move.cy-move.oy; const d=Math.hypot(dx,dy);
+  if(d>MAXR){dx=dx/d*MAXR;dy=dy/d*MAXR;} return [dx/MAXR,dy/MAXR,d]; }
+cv.addEventListener('touchstart',e=>{ e.preventDefault(); ac()&&ac().resume&&ac().resume();
+  for(const t of e.changedTouches){ if(move.id===null){ move.id=t.identifier; move.ox=move.cx=t.clientX; move.oy=move.cy=t.clientY; } }},{passive:false});
+cv.addEventListener('touchmove',e=>{ e.preventDefault(); for(const t of e.changedTouches){ if(t.identifier===move.id){ move.cx=t.clientX; move.cy=t.clientY; } }},{passive:false});
+function endT(e){ for(const t of e.changedTouches){ if(t.identifier===move.id){ move.id=null; } }}
+cv.addEventListener('touchend',e=>{e.preventDefault();endT(e);},{passive:false});
+cv.addEventListener('touchcancel',e=>{e.preventDefault();endT(e);},{passive:false});
+const keys={}; addEventListener('keydown',e=>{ keys[e.key.toLowerCase()]=true; if(e.key===' ')doShoot(); if(e.key.toLowerCase()==='z')doPass(); });
+addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=false; });
+
+$('playBtn').onclick=start; $('againBtn').onclick=start;
+$('menu').addEventListener('click',()=>{ if(state==='menu')start(); });
+$('over').addEventListener('click',()=>{ if(state==='over')start(); });
+let deferredPrompt=null;
+addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); deferredPrompt=e; });
+const ib=$('installBtn');
+if(ib) ib.addEventListener('click', async ev=>{ ev.stopPropagation();
+  if(deferredPrompt){ deferredPrompt.prompt(); try{await deferredPrompt.userChoice;}catch(_){}
+    deferredPrompt=null; }
+  else alert('Para instalar:\n\niPhone (Safari): Compartir ↑ → "Añadir a pantalla de inicio".\nAndroid (Chrome): menú ⋮ → "Instalar aplicación".'); });
+$('shootBtn').onclick=e=>{ e.stopPropagation(); doShoot(); };
+$('passBtn').onclick=e=>{ e.stopPropagation(); doPass(); };
+function start(){ ac()&&ac().resume&&ac().resume(); newMatch(); state='playing'; SFX.whistle();
+  $('menu').classList.add('hide'); $('over').classList.add('hide'); $('goal').classList.add('hide'); lastTime=performance.now(); }
+
+// ---- acciones ----
+function doShoot(){ if(state!=='playing'||!controlled) return;
+  if(ball.owner===controlled || dist2(ball.x,ball.y,controlled.x,controlled.y)<(controlled.r+ball.r+14)**2){
+    const g=oppGoal(); const a=Math.atan2(g.y-ball.y, g.x-ball.x)+rnd(-0.12,0.12);
+    kickBall(controlled, a, 15); SFX.kick(); } }
+function doPass(){ if(state!=='playing'||!controlled) return;
+  if(ball.owner!==controlled && dist2(ball.x,ball.y,controlled.x,controlled.y)>(controlled.r+ball.r+14)**2) return;
+  // pasar al compañero más adelantado
+  let best=null,by=1e9; for(const p of players){ if(p.team!=='you'||p===controlled||p.role==='gk')continue;
+    if(p.y<by){by=p.y;best=p;} }
+  if(best){ const a=Math.atan2(best.y-ball.y,best.x-ball.x); kickBall(controlled,a,11); SFX.pass(); } }
+function kickBall(byP,ang,power){ ball.owner=null; ball.lastShot=performance.now(); ball.lastShooter=byP;
+  ball.vx=Math.cos(ang)*power; ball.vy=Math.sin(ang)*power; }
+
+// ---- bucle ----
+function nearestToBall(team){ let np=null,nd=1e18; for(const p of players){ if(team&&p.team!==team)continue;
+  const d=dist2(p.x,p.y,ball.x,ball.y); if(d<nd){nd=d;np=p;} } return np; }
+
+function update(now,dt){
+  const f=clamp(dt/16.67,0.2,3);
+  if(now<pauseUntil){ return; }         // pausa tras gol
+  timeLeft-=dt/1000; if(timeLeft<=0){ timeLeft=0; endMatch(); return; }
+
+  // ¿a quién controlo? al azul más cercano al balón (o al que lo lleva)
+  if(ball.owner && ball.owner.team==='you') controlled=ball.owner;
+  else { let np=null,nd=1e18; for(const p of players){ if(p.team!=='you'||p.role==='gk')continue;
+    const d=dist2(p.x,p.y,ball.x,ball.y); if(d<nd){nd=d;np=p;} } controlled=np; }
+
+  // mover al jugador controlado con el dedo
+  let mdx=0,mdy=0;
+  if(move.id!==null){ const [vx,vy]=stickVec(); mdx=vx; mdy=vy; }
+  if(keys['w']||keys['arrowup'])mdy-=1; if(keys['s']||keys['arrowdown'])mdy+=1;
+  if(keys['a']||keys['arrowleft'])mdx-=1; if(keys['d']||keys['arrowright'])mdx+=1;
+  const mag=Math.hypot(mdx,mdy);
+  if(controlled){ if(mag>0.15){ const sp=3.9; controlled.vx=mdx/mag*sp; controlled.vy=mdy/mag*sp; controlled.ang=Math.atan2(mdy,mdx); }
+    else { controlled.vx*=0.6; controlled.vy*=0.6; } }
+
+  // IA de todos los jugadores
+  const chaser={you:nearestToBall('you'), cpu:nearestToBall('cpu')};
+  for(const p of players){
+    if(p===controlled) { /* lo mueve el jugador */ }
+    else aiMove(p, chaser, f);
+    // aplicar velocidad + límites del campo
+    p.x=clamp(p.x+p.vx*f, field.x+p.r, field.x+field.w-p.r);
+    p.y=clamp(p.y+p.vy*f, field.y+p.r, field.y+field.h-p.r);
+  }
+
+  // posesión del balón: el más cercano dentro del radio de control
+  const np=nearestToBall(null);
+  if(np){ const d=Math.hypot(np.x-ball.x,np.y-ball.y);
+    if(d < np.r+ball.r+12 && (now-ball.lastShot>250 || np!==ball.lastShooter)) ball.owner=np; else if(d>np.r+ball.r+22) ball.owner=null; }
+
+  if(ball.owner){ // regate: el balón va por delante del dueño
+    const o=ball.owner;
+    if(o!==controlled){ o.ang=Math.atan2(o.vy,o.vx)||o.ang; }
+    ball.x=o.x+Math.cos(o.ang)*(o.r+ball.r+3); ball.y=o.y+Math.sin(o.ang)*(o.r+ball.r+3);
+    ball.vx=o.vx; ball.vy=o.vy;
+    // la IA con balón chuta si está en rango
+    if(o!==controlled && o.role!=='gk'){ aiShoot(o, now); }
+  } else { // balón libre
+    ball.x+=ball.vx*f; ball.y+=ball.vy*f; const fr=Math.pow(0.986,f); ball.vx*=fr; ball.vy*=fr;
+    if(ball.x<field.x+ball.r){ ball.x=field.x+ball.r; ball.vx=Math.abs(ball.vx)*0.6; SFX.wall(); }
+    if(ball.x>field.x+field.w-ball.r){ ball.x=field.x+field.w-ball.r; ball.vx=-Math.abs(ball.vx)*0.6; SFX.wall(); }
+    if(ball.y<GOAL_TOP_Y+ball.r){ if(inGoalMouth(ball.x)){ goal('you'); return; } else { ball.y=GOAL_TOP_Y+ball.r; ball.vy=Math.abs(ball.vy)*0.6; } }
+    if(ball.y>GOAL_BOT_Y-ball.r){ if(inGoalMouth(ball.x)){ goal('cpu'); return; } else { ball.y=GOAL_BOT_Y-ball.r; ball.vy=-Math.abs(ball.vy)*0.6; } }
+  }
+  updateHUD();
+}
+
+function aiMove(p, chaser, f){
+  if(p.role==='gk'){ // portero: sigue el balón en X, pegado a su portería
+    const gy = p.team==='you'? field.y+field.h-p.r*1.6 : field.y+p.r*1.6;
+    const tx=clamp(ball.x, field.x+(field.w-goalW)/2, field.x+(field.w+goalW)/2);
+    p.vx=clamp((tx-p.x)*0.12,-3,3); p.vy=clamp((gy-p.y)*0.1,-3,3); return; }
+  const owner=ball.owner;
+  const attacking = owner && owner.team===p.team;
+  let tx,ty,sp=3.0;
+  if(p===chaser[p.team] && (!owner || owner.team!==p.team)){ tx=ball.x; ty=ball.y; sp=3.4; } // ve a por el balón
+  else { // mantener formación, con sesgo hacia el lado del balón
+    tx=p.hx*0.6 + ball.x*0.4; ty=p.hy*0.7 + (p.team==='you'?ball.y:ball.y)*0.3; sp=2.6; }
+  const dx=tx-p.x, dy=ty-p.y, d=Math.hypot(dx,dy)||1;
+  if(d>4){ p.vx=dx/d*sp; p.vy=dy/d*sp; p.ang=Math.atan2(dy,dx); } else { p.vx*=0.5; p.vy*=0.5; }
+}
+function aiShoot(o, now){
+  // la CPU marca en tu portería (abajo); tu compañero-IA marca en la del rival (arriba)
+  const gp = o.team==='cpu' ? ownGoal() : oppGoal();
+  const dgoal=Math.hypot(gp.x-o.x, gp.y-o.y);
+  if(dgoal < field.h*0.42 && now-(o.lastKick||0)>500){ o.lastKick=now;
+    const a=Math.atan2(gp.y-ball.y, gp.x-ball.x)+rnd(-0.1,0.1); kickBall(o,a,14); if(o.team==='cpu')SFX.kick(); }
+}
+function goal(scorer){ if(scorer==='you')scoreYou++; else scoreCpu++;
+  SFX.goal(); bannerTxt = scorer==='you'?'¡GOOOL TUYO!':'gol de la CPU';
+  $('goalTxt').textContent=bannerTxt; $('goalKick').textContent = scorer==='you'?'GOOOOL':'gol';
+  $('goal').classList.remove('hide'); state='goal';
+  setTimeout(()=>{ if(state==='goal'){ resetPositions(); updateHUD(); state='playing'; $('goal').classList.add('hide'); lastTime=performance.now(); } }, 1500); }
+function endMatch(){ state='over'; SFX.whistle();
+  const win = scoreYou>scoreCpu?'¡GANASTE! 🏆': scoreYou<scoreCpu?'Perdiste 😅':'¡Empate!';
+  $('overTxt').textContent=win; $('overSub').innerHTML=`Marcador final: <b style="color:#7aa2ff">${scoreYou}</b> — <b style="color:#ff8a8a">${scoreCpu}</b>`;
+  $('over').classList.remove('hide'); }
+
+// ---- dibujo ----
+function draw(now){
+  // césped a rayas
+  for(let i=0;i*40<H;i++){ ctx.fillStyle=(i%2)?'#2a7d3c':'#2f8a43'; ctx.fillRect(0,i*40,W,40); }
+  // líneas del campo
+  ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=3;
+  ctx.strokeRect(field.x,field.y,field.w,field.h);
+  ctx.beginPath(); ctx.moveTo(field.x,field.y+field.h/2); ctx.lineTo(field.x+field.w,field.y+field.h/2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(field.x+field.w/2,field.y+field.h/2,Math.min(field.w,field.h)*0.11,0,TAU); ctx.stroke();
+  // áreas + porterías
+  const ax=field.x+(field.w-goalW*1.5)/2, aw=goalW*1.5, ah=field.h*0.14;
+  ctx.strokeRect(ax,field.y,aw,ah); ctx.strokeRect(ax,field.y+field.h-ah,aw,ah);
+  ctx.lineWidth=6; ctx.strokeStyle='#fff';
+  const gx=field.x+(field.w-goalW)/2;
+  ctx.strokeRect(gx,field.y-10,goalW,10); ctx.strokeRect(gx,field.y+field.h,goalW,10);
+
+  if(state!=='menu'){
+    // jugadores
+    for(const p of players){
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,TAU);
+      ctx.fillStyle=p.team==='you'?'#2e6bff':'#e03a3a'; ctx.fill();
+      ctx.lineWidth=2; ctx.strokeStyle='rgba(0,0,0,.4)'; ctx.stroke();
+      if(p.role==='gk'){ ctx.fillStyle='rgba(255,255,255,.5)'; ctx.beginPath(); ctx.arc(p.x,p.y,p.r*0.5,0,TAU); ctx.fill(); }
+    }
+    // resaltar al jugador controlado
+    if(controlled){ ctx.strokeStyle='#ffe14a'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(controlled.x,controlled.y,controlled.r+5,0,TAU); ctx.stroke();
+      ctx.fillStyle='#ffe14a'; ctx.beginPath();
+      ctx.moveTo(controlled.x,controlled.y-controlled.r-9); ctx.lineTo(controlled.x-6,controlled.y-controlled.r-18);
+      ctx.lineTo(controlled.x+6,controlled.y-controlled.r-18); ctx.closePath(); ctx.fill(); }
+    // balón
+    ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r,0,TAU); ctx.fillStyle='#fff'; ctx.fill();
+    ctx.lineWidth=1.5; ctx.strokeStyle='#333'; ctx.stroke();
+    ctx.fillStyle='#222'; ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r*0.4,0,TAU); ctx.fill();
+    // joystick
+    if(move.id!==null){ ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(move.ox,move.oy,MAXR,0,TAU); ctx.stroke();
+      const [vx,vy]=stickVec(); ctx.fillStyle='rgba(255,255,255,.4)';
+      ctx.beginPath(); ctx.arc(move.ox+vx*MAXR,move.oy+vy*MAXR,24,0,TAU); ctx.fill(); }
+  }
+}
+
+function frame(now){ const dt=now-(lastTime||now); lastTime=now;
+  if(state==='playing') update(now,dt); draw(now); requestAnimationFrame(frame); }
+resize(); requestAnimationFrame(frame);
+</script>
+
+<script>
+if('serviceWorker' in navigator){ addEventListener('load',function(){ navigator.serviceWorker.register('./sw.js').catch(function(){}); }); }
+</script>
+</body>
+</html>
