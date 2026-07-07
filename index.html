@@ -167,20 +167,51 @@ const SKINS=['#f0c8a0','#e8b98a','#c98f6b','#a06a45','#8d5a3c'];
 const HAIRS=['#2a1a10','#4a3420','#111111','#6a4a2a','#d9c27a'];
 let TEAM_YOU=TEAMS[0], TEAM_CPU=TEAMS[1];
 
+// ---- dibujo de personas ----
+function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function rrfill(x,y,w,h,r){ roundRect(x,y,w,h,r); ctx.fill(); }
+function lum(hex){ const n=parseInt(hex.slice(1),16); return 0.2126*((n>>16)&255)+0.7152*((n>>8)&255)+0.0722*(n&255); }
+function shortsFor(hex){ return lum(hex)>150 ? '#16224a' : '#f0f0f0'; }
+// futbolista visto desde arriba: piernas, botas, brazos, camiseta, cabeza con pelo
+function drawFootballer(p, td){
+  const s=p.r*1.35, shirt = p.role==='gk'? td.gk : td.color, shorts = p.role==='gk'? '#111' : shortsFor(shirt);
+  ctx.save(); ctx.translate(p.x,p.y);
+  ctx.fillStyle='rgba(0,0,0,.32)'; ctx.beginPath(); ctx.ellipse(0,s*0.22,s*0.95,s*0.72,0,0,TAU); ctx.fill();
+  ctx.rotate(p.ang);
+  // botas
+  ctx.fillStyle='#0a0a0a'; rrfill(s*0.42,-s*0.44,s*0.28,s*0.22,2); rrfill(s*0.42,s*0.22,s*0.28,s*0.22,2);
+  // piernas (pantalón)
+  ctx.fillStyle=shorts; rrfill(-s*0.15,-s*0.44,s*0.6,s*0.3,3); rrfill(-s*0.15,s*0.14,s*0.6,s*0.3,3);
+  // brazos (piel)
+  ctx.strokeStyle=p.skin; ctx.lineWidth=s*0.2; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(0,-s*0.46); ctx.lineTo(s*0.4,-s*0.6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, s*0.46); ctx.lineTo(s*0.4, s*0.6); ctx.stroke();
+  // torso (camiseta)
+  ctx.fillStyle=shirt; ctx.strokeStyle='rgba(0,0,0,.55)'; ctx.lineWidth=2;
+  rrfill(-s*0.5,-s*0.55,s*1.0,s*1.1,s*0.42); ctx.stroke();
+  // cabeza: pelo + piel al frente
+  ctx.fillStyle=p.hair; ctx.beginPath(); ctx.arc(s*0.36,0,s*0.4,0,TAU); ctx.fill();
+  ctx.fillStyle=p.skin; ctx.beginPath(); ctx.arc(s*0.5,0,s*0.3,0,TAU); ctx.fill();
+  ctx.restore();
+}
+
 // ---- campo ----
 let field={x:0,y:0,w:0,h:0}, goalW=0, GOAL_TOP_Y=0, GOAL_BOT_Y=0;
 function computeField(){
-  const top=56, mb=Math.min(W,H)*0.11;   // más margen = gradas grandes alrededor
-  field.x=mb; field.y=top+mb; field.w=W-mb*2; field.h=H-top-mb*1.4;
+  const top=56, mb=Math.min(W,H)*0.08;   // campo grande, con banda de gradas
+  field.x=mb; field.y=top+mb; field.w=W-mb*2; field.h=H-top-mb*1.3;
   goalW=field.w*0.34; GOAL_TOP_Y=field.y; GOAL_BOT_Y=field.y+field.h;
   buildCrowd();
 }
 // ---- público del estadio ----
 let crowd=[];
 const CROWD_COLS=['#2e6bff','#e03a3a','#f0f0f0','#f7d51d','#12a150','#ff8ab0','#6cabdd','#e67e22','#8e44ad'];
-function buildCrowd(){ crowd=[]; const s=9, jit=3;
+const CROWD_SK=['#f0c8a0','#e8b98a','#c98f6b','#8d5a3c'];
+function buildCrowd(){ crowd=[]; const s=10, jit=3;
   function band(x0,y0,x1,y1){ for(let y=y0;y<y1;y+=s){ for(let x=x0;x<x1;x+=s){
-    crowd.push({x:x+rnd(-jit,jit), y:y+rnd(-jit,jit), c:CROWD_COLS[(Math.random()*CROWD_COLS.length)|0]}); } } }
+    crowd.push({x:x+rnd(-jit,jit), y:y+rnd(-jit,jit), c:CROWD_COLS[(Math.random()*CROWD_COLS.length)|0],
+      sk:CROWD_SK[(Math.random()*CROWD_SK.length)|0]}); } } }
   band(0,0,W,field.y-6);
   band(0,field.y+field.h+6,W,H);
   band(0,field.y-6,field.x-6,field.y+field.h+6);
@@ -201,7 +232,7 @@ function homePos(team,i){ const f=FORM[i]; const fy=team==='you'?f[1]:1-f[1];
   return { x:field.x+f[0]*field.w, y:field.y+fy*field.h, role:f[2] }; }
 function makeTeam(team){ const data=team==='you'?TEAM_YOU:TEAM_CPU; const arr=[];
   for(let i=0;i<FORM.length;i++){ const h=homePos(team,i);
-    arr.push({x:h.x,y:h.y,hx:h.x,hy:h.y,vx:0,vy:0,r:Math.min(W,H)*0.026,team,role:h.role,
+    arr.push({x:h.x,y:h.y,hx:h.x,hy:h.y,vx:0,vy:0,r:Math.min(W,H)*0.03,team,role:h.role,
       ang:team==='you'?-Math.PI/2:Math.PI/2, name:data.names[i], skin:SKINS[i%SKINS.length], hair:HAIRS[(i*2)%HAIRS.length]}); }
   return arr; }
 function resetPositions(){ for(let t=0;t<2;t++){ const team=t?'cpu':'you';
@@ -363,8 +394,10 @@ function endMatch(){ state='over'; SFX.whistle();
 function draw(now){
   // ESTADIO: gradas de hormigón + público
   ctx.fillStyle='#23272f'; ctx.fillRect(0,0,W,H);
-  const bob=Math.sin(now/300)*1;   // el público se mueve un poco
-  for(const p of crowd){ ctx.fillStyle=p.c; ctx.fillRect(p.x, p.y+((p.x+p.y)&1?bob:0), 3, 3); }
+  const bob=Math.sin(now/300)*1;   // el público se mueve un poco (aficionados = personitas)
+  for(const p of crowd){ const yy=p.y+((p.x+p.y)&1?bob:0);
+    ctx.fillStyle=p.sk; ctx.fillRect(p.x+1, yy-2, 2, 2);      // cabeza
+    ctx.fillStyle=p.c; ctx.fillRect(p.x, yy, 4, 4); }         // cuerpo/camiseta
   // muro/valla alrededor del campo
   ctx.fillStyle='#12151a'; ctx.fillRect(field.x-9,field.y-9,field.w+18,field.h+18);
   // césped a rayas (solo dentro del campo)
@@ -384,20 +417,13 @@ function draw(now){
   ctx.strokeRect(gx,field.y-10,goalW,10); ctx.strokeRect(gx,field.y+field.h,goalW,10);
 
   if(state!=='menu'){
-    // jugadores (camiseta del equipo + cara + nombre)
+    // jugadores (personas con camiseta del equipo + nombre)
     for(const p of players){
       const td=p.team==='you'?TEAM_YOU:TEAM_CPU;
-      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,TAU);
-      ctx.fillStyle = p.role==='gk'? td.gk : td.color; ctx.fill();
-      ctx.lineWidth=2; ctx.strokeStyle='rgba(0,0,0,.55)'; ctx.stroke();
-      // cara de dibujo: pelo detrás + piel al frente
-      ctx.fillStyle=p.hair; ctx.beginPath(); ctx.arc(p.x,p.y,p.r*0.6,0,TAU); ctx.fill();
-      ctx.fillStyle=p.skin; ctx.beginPath();
-      ctx.arc(p.x+Math.cos(p.ang)*p.r*0.14, p.y+Math.sin(p.ang)*p.r*0.14, p.r*0.46,0,TAU); ctx.fill();
-      // nombre
+      drawFootballer(p, td);
       ctx.font='bold 10px Arial'; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
-      ctx.lineWidth=3; ctx.strokeStyle='rgba(0,0,0,.85)'; ctx.strokeText(p.name, p.x, p.y-p.r-5);
-      ctx.fillStyle='#fff'; ctx.fillText(p.name, p.x, p.y-p.r-5);
+      ctx.lineWidth=3; ctx.strokeStyle='rgba(0,0,0,.85)'; ctx.strokeText(p.name, p.x, p.y-p.r*1.7-4);
+      ctx.fillStyle='#fff'; ctx.fillText(p.name, p.x, p.y-p.r*1.7-4);
     }
     // resaltar al jugador controlado
     if(controlled){ ctx.strokeStyle='#ffe14a'; ctx.lineWidth=3;
