@@ -37,9 +37,12 @@
 
   .act{position:absolute; z-index:6; pointer-events:auto; border:2px solid var(--panelbd);
     background:var(--panel); color:var(--ink); border-radius:50%; display:grid; place-items:center;
-    backdrop-filter:blur(6px); font-size:26px;}
-  #shootBtn{right:22px; bottom:34px; width:82px; height:82px;}
-  #passBtn{right:118px; bottom:26px; width:58px; height:58px; font-size:20px;}
+    backdrop-filter:blur(6px); font-size:26px; line-height:1;}
+  .act i{display:block; font-style:normal; font-size:9px; letter-spacing:.04em; margin-top:1px; color:#cfe0d4;}
+  #shootBtn{right:20px; bottom:30px; width:86px; height:86px; font-size:30px;}
+  #passBtn{right:122px; bottom:44px; width:62px; height:62px; font-size:22px;}
+  #sprintBtn{right:120px; bottom:126px; width:56px; height:56px; font-size:20px;}
+  #sprintBtn.on{border-color:#ffe14a; background:rgba(120,90,20,.7);}
   .act:active{transform:scale(.92);}
 
   .screen{position:absolute; inset:0; z-index:10; display:flex; flex-direction:column;
@@ -72,8 +75,9 @@
   <div id="top"><span class="score you" id="sYou">0</span><span class="vs" id="vs">TÚ · CPU</span><span class="score cpu" id="sCpu">0</span></div>
   <div id="timer">2:00</div>
 
-  <button class="act" id="passBtn">👟</button>
-  <button class="act" id="shootBtn">⚽</button>
+  <button class="act" id="sprintBtn">🏃<i>CORRER</i></button>
+  <button class="act" id="passBtn">👟<i>PASE</i></button>
+  <button class="act" id="shootBtn">⚽<i>CHUTAR</i></button>
 
   <div class="screen" id="menu">
     <div class="kick">Fútbol arcade</div>
@@ -166,9 +170,21 @@ let TEAM_YOU=TEAMS[0], TEAM_CPU=TEAMS[1];
 // ---- campo ----
 let field={x:0,y:0,w:0,h:0}, goalW=0, GOAL_TOP_Y=0, GOAL_BOT_Y=0;
 function computeField(){
-  const top=56, mb=Math.min(W,H)*0.05;
-  field.x=mb; field.y=top+mb; field.w=W-mb*2; field.h=H-top-mb*2;
+  const top=56, mb=Math.min(W,H)*0.11;   // más margen = gradas grandes alrededor
+  field.x=mb; field.y=top+mb; field.w=W-mb*2; field.h=H-top-mb*1.4;
   goalW=field.w*0.34; GOAL_TOP_Y=field.y; GOAL_BOT_Y=field.y+field.h;
+  buildCrowd();
+}
+// ---- público del estadio ----
+let crowd=[];
+const CROWD_COLS=['#2e6bff','#e03a3a','#f0f0f0','#f7d51d','#12a150','#ff8ab0','#6cabdd','#e67e22','#8e44ad'];
+function buildCrowd(){ crowd=[]; const s=9, jit=3;
+  function band(x0,y0,x1,y1){ for(let y=y0;y<y1;y+=s){ for(let x=x0;x<x1;x+=s){
+    crowd.push({x:x+rnd(-jit,jit), y:y+rnd(-jit,jit), c:CROWD_COLS[(Math.random()*CROWD_COLS.length)|0]}); } } }
+  band(0,0,W,field.y-6);
+  band(0,field.y+field.h+6,W,H);
+  band(0,field.y-6,field.x-6,field.y+field.h+6);
+  band(field.x+field.w+6,field.y-6,W,field.y+field.h+6);
 }
 function inGoalMouth(x){ return x>field.x+(field.w-goalW)/2 && x<field.x+(field.w+goalW)/2; }
 const oppGoal=()=>({x:field.x+field.w/2, y:field.y-6});          // portería CPU (arriba) = a la que tú marcas
@@ -234,6 +250,9 @@ if(ib) ib.addEventListener('click', async ev=>{ ev.stopPropagation();
   else alert('Para instalar:\n\niPhone (Safari): Compartir ↑ → "Añadir a pantalla de inicio".\nAndroid (Chrome): menú ⋮ → "Instalar aplicación".'); });
 $('shootBtn').onclick=e=>{ e.stopPropagation(); doShoot(); };
 $('passBtn').onclick=e=>{ e.stopPropagation(); doPass(); };
+let sprinting=false;
+$('sprintBtn').onclick=e=>{ e.stopPropagation(); sprinting=!sprinting;
+  $('sprintBtn').classList.toggle('on', sprinting); };
 function start(){ ac()&&ac().resume&&ac().resume();
   const yi=+($('teamYou').value||0), ci=+($('teamCpu').value||1);
   TEAM_YOU=TEAMS[yi]; TEAM_CPU=TEAMS[ci===yi?(ci+1)%TEAMS.length:ci];   // evita mismo equipo
@@ -274,7 +293,7 @@ function update(now,dt){
   if(keys['w']||keys['arrowup'])mdy-=1; if(keys['s']||keys['arrowdown'])mdy+=1;
   if(keys['a']||keys['arrowleft'])mdx-=1; if(keys['d']||keys['arrowright'])mdx+=1;
   const mag=Math.hypot(mdx,mdy);
-  if(controlled){ if(mag>0.15){ const sp=3.9; controlled.vx=mdx/mag*sp; controlled.vy=mdy/mag*sp; controlled.ang=Math.atan2(mdy,mdx); }
+  if(controlled){ if(mag>0.15){ const sp=sprinting?5.6:3.9; controlled.vx=mdx/mag*sp; controlled.vy=mdy/mag*sp; controlled.ang=Math.atan2(mdy,mdx); }
     else { controlled.vx*=0.6; controlled.vy*=0.6; } }
 
   // IA de todos los jugadores
@@ -342,8 +361,16 @@ function endMatch(){ state='over'; SFX.whistle();
 
 // ---- dibujo ----
 function draw(now){
-  // césped a rayas
-  for(let i=0;i*40<H;i++){ ctx.fillStyle=(i%2)?'#2a7d3c':'#2f8a43'; ctx.fillRect(0,i*40,W,40); }
+  // ESTADIO: gradas de hormigón + público
+  ctx.fillStyle='#23272f'; ctx.fillRect(0,0,W,H);
+  const bob=Math.sin(now/300)*1;   // el público se mueve un poco
+  for(const p of crowd){ ctx.fillStyle=p.c; ctx.fillRect(p.x, p.y+((p.x+p.y)&1?bob:0), 3, 3); }
+  // muro/valla alrededor del campo
+  ctx.fillStyle='#12151a'; ctx.fillRect(field.x-9,field.y-9,field.w+18,field.h+18);
+  // césped a rayas (solo dentro del campo)
+  ctx.save(); ctx.beginPath(); ctx.rect(field.x,field.y,field.w,field.h); ctx.clip();
+  for(let i=Math.floor(field.y/40);i*40<field.y+field.h;i++){ ctx.fillStyle=(i%2)?'#2a7d3c':'#2f8a43'; ctx.fillRect(field.x,i*40,field.w,40); }
+  ctx.restore();
   // líneas del campo
   ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=3;
   ctx.strokeRect(field.x,field.y,field.w,field.h);
