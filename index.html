@@ -59,6 +59,10 @@
   .cta:active{transform:translateY(2px);}
   .help{margin-top:20px; color:var(--dim); font-size:13px; line-height:1.7; max-width:30ch;}
   .help b{color:var(--ink);}
+  #teams{margin-top:16px; display:flex; gap:14px; justify-content:center; pointer-events:auto;}
+  #teams label{font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); text-align:center;}
+  .teamsel{display:block; margin-top:5px; padding:11px 12px; border-radius:12px; border:2px solid var(--panelbd);
+    background:#0e1c13; color:#eef4f0; font-size:16px; font-weight:700; max-width:44vw;}
   @media (prefers-reduced-motion:reduce){*{transition:none!important;}}
 </style>
 
@@ -74,7 +78,11 @@
   <div class="screen" id="menu">
     <div class="kick">Fútbol arcade</div>
     <h1 class="title">Super<br>Fútbol</h1>
-    <p class="sub">de <span class="name">SAMUEL</span> · marca más goles que la máquina en 2 minutos.</p>
+    <p class="sub">de <span class="name">SAMUEL</span> · elige tu equipo y gana en 2 minutos.</p>
+    <div id="teams">
+      <label>Tu equipo<select class="teamsel" id="teamYou"></select></label>
+      <label>Rival<select class="teamsel" id="teamCpu"></select></label>
+    </div>
     <button class="cta" id="playBtn">Jugar</button>
     <button class="cta" id="installBtn" style="margin-top:12px;background:linear-gradient(180deg,#6ad0ff,#2a86ff);color:#04121f;">📲 Instalar app</button>
     <div class="help">
@@ -121,6 +129,40 @@ const SFX={ kick:()=>beep(320,0.09,0.22,'square',140), pass:()=>beep(260,0.08,0.
   whistle:()=>{beep(1800,0.18,0.18,'square',1600);setTimeout(()=>beep(1800,0.12,0.18,'square'),200);},
   wall:()=>beep(200,0.05,0.1) };
 
+// ---- EQUIPOS y JUGADORES (nombres reales, colores de camiseta; caras de dibujo) ----
+// names en orden: [portero, defensa, defensa, medio, delantero]
+const TEAMS=[
+  {name:'Barcelona',abbr:'BAR',color:'#004d98',gk:'#f7d51d',names:['Joan García','Koundé','Balde','Pedri','Lamine Yamal']},
+  {name:'Real Madrid',abbr:'RMA',color:'#e9e9ee',gk:'#111',names:['Courtois','Carvajal','Rüdiger','Bellingham','Mbappé']},
+  {name:'Atlético Madrid',abbr:'ATM',color:'#c81414',gk:'#111',names:['Oblak','Giménez','Koke','Barrios','J. Álvarez']},
+  {name:'Mallorca',abbr:'MLL',color:'#d11e1e',gk:'#111',names:['Rajković','Raíllo','Mojica','Dani Rodríguez','Muriqi']},
+  {name:'Athletic Club',abbr:'ATH',color:'#e2001a',gk:'#111',names:['Simón','Vivian','Yuri','Sancet','N. Williams']},
+  {name:'Girona',abbr:'GIR',color:'#d1141e',gk:'#111',names:['Gazzaniga','Blind','Miguel','Tsygankov','Stuani']},
+  {name:'Real Betis',abbr:'BET',color:'#12a150',gk:'#111',names:['Rui Silva','Bartra','Bellerín','Isco','Antony']},
+  {name:'Villarreal',abbr:'VIL',color:'#ffde00',gk:'#111',names:['Diego Conde','Foyth','Pedraza','Comesaña','Pepe']},
+  {name:'Sevilla',abbr:'SEV',color:'#e9e9ee',gk:'#111',names:['Nyland','Badé','Pedrosa','Sow','Lukébakio']},
+  {name:'Valencia',abbr:'VAL',color:'#f2f2f2',gk:'#111',names:['Mamardashvili','Tárrega','Gayà','Guerra','Duro']},
+  {name:'Man City',abbr:'MCI',color:'#6cabdd',gk:'#111',names:['Ederson','Rúben Dias','Gvardiol','Rodri','Haaland']},
+  {name:'Arsenal',abbr:'ARS',color:'#ef0107',gk:'#111',names:['Raya','Saliba','Rice','Ødegaard','Saka']},
+  {name:'Liverpool',abbr:'LIV',color:'#c8102e',gk:'#111',names:['Alisson','Van Dijk','Robertson','Mac Allister','Salah']},
+  {name:'Man United',abbr:'MUN',color:'#da020e',gk:'#111',names:['Onana','Martínez','Shaw','Fernandes','Højlund']},
+  {name:'Chelsea',abbr:'CHE',color:'#034694',gk:'#f7d51d',names:['Sánchez','Colwill','Cucurella','Palmer','N. Jackson']},
+  {name:'Tottenham',abbr:'TOT',color:'#f2f2f2',gk:'#111',names:['Vicario','Romero','Udogie','Maddison','Son']},
+  {name:'Inter',abbr:'INT',color:'#0b1f6b',gk:'#111',names:['Sommer','Bastoni','Dimarco','Barella','Lautaro']},
+  {name:'AC Milan',abbr:'MIL',color:'#fb090b',gk:'#111',names:['Maignan','Tomori','Theo','Reijnders','Leão']},
+  {name:'Juventus',abbr:'JUV',color:'#111111',gk:'#f7d51d',names:['Di Gregorio','Bremer','Cambiaso','Locatelli','Vlahović']},
+  {name:'Napoli',abbr:'NAP',color:'#1b9ae2',gk:'#111',names:['Meret','Rrahmani','Di Lorenzo','McTominay','Lukaku']},
+  {name:'Bayern',abbr:'BAY',color:'#dc052d',gk:'#111',names:['Neuer','Kim','Davies','Kimmich','Kane']},
+  {name:'Dortmund',abbr:'BVB',color:'#f9e400',gk:'#111',names:['Kobel','Schlotterbeck','Ryerson','Brandt','Guirassy']},
+  {name:'Leverkusen',abbr:'B04',color:'#e32219',gk:'#111',names:['Hrádecký','Tapsoba','Grimaldo','Wirtz','Schick']},
+  {name:'PSG',abbr:'PSG',color:'#0b1e40',gk:'#111',names:['Donnarumma','Marquinhos','Hakimi','Vitinha','Dembélé']},
+  {name:'Inter Miami',abbr:'MIA',color:'#f7b5cd',gk:'#111',names:['Ustari','Alba','Busquets','Suárez','Messi']},
+  {name:'Al Nassr',abbr:'NAS',color:'#f8e12a',gk:'#111',names:['Bento','Laporte','Ángelo','Brozović','Cristiano']},
+];
+const SKINS=['#f0c8a0','#e8b98a','#c98f6b','#a06a45','#8d5a3c'];
+const HAIRS=['#2a1a10','#4a3420','#111111','#6a4a2a','#d9c27a'];
+let TEAM_YOU=TEAMS[0], TEAM_CPU=TEAMS[1];
+
 // ---- campo ----
 let field={x:0,y:0,w:0,h:0}, goalW=0, GOAL_TOP_Y=0, GOAL_BOT_Y=0;
 function computeField(){
@@ -141,8 +183,11 @@ const FORM=[  // fx (ancho 0..1), fy (0=arriba/portería rival, 1=abajo/tu porte
 ];
 function homePos(team,i){ const f=FORM[i]; const fy=team==='you'?f[1]:1-f[1];
   return { x:field.x+f[0]*field.w, y:field.y+fy*field.h, role:f[2] }; }
-function makeTeam(team){ const arr=[]; for(let i=0;i<FORM.length;i++){ const h=homePos(team,i);
-  arr.push({x:h.x,y:h.y,hx:h.x,hy:h.y,vx:0,vy:0,r:Math.min(W,H)*0.024,team,role:h.role,ang:team==='you'?-Math.PI/2:Math.PI/2}); } return arr; }
+function makeTeam(team){ const data=team==='you'?TEAM_YOU:TEAM_CPU; const arr=[];
+  for(let i=0;i<FORM.length;i++){ const h=homePos(team,i);
+    arr.push({x:h.x,y:h.y,hx:h.x,hy:h.y,vx:0,vy:0,r:Math.min(W,H)*0.026,team,role:h.role,
+      ang:team==='you'?-Math.PI/2:Math.PI/2, name:data.names[i], skin:SKINS[i%SKINS.length], hair:HAIRS[(i*2)%HAIRS.length]}); }
+  return arr; }
 function resetPositions(){ for(let t=0;t<2;t++){ const team=t?'cpu':'you';
   for(let i=0;i<FORM.length;i++){ const h=homePos(team,i), p=players[t*FORM.length+i];
     p.x=h.x; p.y=h.y; p.vx=p.vy=0; } }
@@ -151,7 +196,11 @@ function newMatch(){ players=[...makeTeam('you'), ...makeTeam('cpu')];
   ball={x:0,y:0,vx:0,vy:0,r:Math.min(W,H)*0.014,owner:null,lastShot:0,lastShooter:null};
   scoreYou=0; scoreCpu=0; timeLeft=120; bannerTxt=''; pauseUntil=0; resetPositions(); updateHUD(); }
 
+function scoreCol(hex){ const n=parseInt(hex.slice(1),16); const r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+  return (0.2126*r+0.7152*g+0.0722*b)<80 ? '#e8eef4' : hex; }
 function updateHUD(){ $('sYou').textContent=scoreYou; $('sCpu').textContent=scoreCpu;
+  $('sYou').style.color=scoreCol(TEAM_YOU.color); $('sCpu').style.color=scoreCol(TEAM_CPU.color);
+  $('vs').textContent=TEAM_YOU.abbr+' · '+TEAM_CPU.abbr;
   const m=Math.floor(timeLeft/60), s=Math.floor(timeLeft%60); $('timer').textContent=m+':'+(s<10?'0':'')+s; }
 
 // ---- input ----
@@ -167,7 +216,13 @@ cv.addEventListener('touchcancel',e=>{e.preventDefault();endT(e);},{passive:fals
 const keys={}; addEventListener('keydown',e=>{ keys[e.key.toLowerCase()]=true; if(e.key===' ')doShoot(); if(e.key.toLowerCase()==='z')doPass(); });
 addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=false; });
 
-$('playBtn').onclick=start; $('againBtn').onclick=start;
+// rellenar los selectores de equipo
+(function(){ const sy=$('teamYou'), sc=$('teamCpu');
+  TEAMS.forEach((t,i)=>{ sy.add(new Option(t.name,i)); sc.add(new Option(t.name,i)); });
+  sy.value=0; sc.value=1;    // Barcelona vs Real Madrid por defecto
+  $('teams').addEventListener('click', e=>e.stopPropagation());
+})();
+$('playBtn').onclick=e=>{ e.stopPropagation(); start(); }; $('againBtn').onclick=start;
 $('menu').addEventListener('click',()=>{ if(state==='menu')start(); });
 $('over').addEventListener('click',()=>{ if(state==='over')start(); });
 let deferredPrompt=null;
@@ -179,7 +234,10 @@ if(ib) ib.addEventListener('click', async ev=>{ ev.stopPropagation();
   else alert('Para instalar:\n\niPhone (Safari): Compartir ↑ → "Añadir a pantalla de inicio".\nAndroid (Chrome): menú ⋮ → "Instalar aplicación".'); });
 $('shootBtn').onclick=e=>{ e.stopPropagation(); doShoot(); };
 $('passBtn').onclick=e=>{ e.stopPropagation(); doPass(); };
-function start(){ ac()&&ac().resume&&ac().resume(); newMatch(); state='playing'; SFX.whistle();
+function start(){ ac()&&ac().resume&&ac().resume();
+  const yi=+($('teamYou').value||0), ci=+($('teamCpu').value||1);
+  TEAM_YOU=TEAMS[yi]; TEAM_CPU=TEAMS[ci===yi?(ci+1)%TEAMS.length:ci];   // evita mismo equipo
+  newMatch(); state='playing'; SFX.whistle();
   $('menu').classList.add('hide'); $('over').classList.add('hide'); $('goal').classList.add('hide'); lastTime=performance.now(); }
 
 // ---- acciones ----
@@ -279,7 +337,7 @@ function goal(scorer){ if(scorer==='you')scoreYou++; else scoreCpu++;
   setTimeout(()=>{ if(state==='goal'){ resetPositions(); updateHUD(); state='playing'; $('goal').classList.add('hide'); lastTime=performance.now(); } }, 1500); }
 function endMatch(){ state='over'; SFX.whistle();
   const win = scoreYou>scoreCpu?'¡GANASTE! 🏆': scoreYou<scoreCpu?'Perdiste 😅':'¡Empate!';
-  $('overTxt').textContent=win; $('overSub').innerHTML=`Marcador final: <b style="color:#7aa2ff">${scoreYou}</b> — <b style="color:#ff8a8a">${scoreCpu}</b>`;
+  $('overTxt').textContent=win; $('overSub').innerHTML=`${TEAM_YOU.name} <b>${scoreYou}</b> — <b>${scoreCpu}</b> ${TEAM_CPU.name}`;
   $('over').classList.remove('hide'); }
 
 // ---- dibujo ----
@@ -299,12 +357,20 @@ function draw(now){
   ctx.strokeRect(gx,field.y-10,goalW,10); ctx.strokeRect(gx,field.y+field.h,goalW,10);
 
   if(state!=='menu'){
-    // jugadores
+    // jugadores (camiseta del equipo + cara + nombre)
     for(const p of players){
+      const td=p.team==='you'?TEAM_YOU:TEAM_CPU;
       ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,TAU);
-      ctx.fillStyle=p.team==='you'?'#2e6bff':'#e03a3a'; ctx.fill();
-      ctx.lineWidth=2; ctx.strokeStyle='rgba(0,0,0,.4)'; ctx.stroke();
-      if(p.role==='gk'){ ctx.fillStyle='rgba(255,255,255,.5)'; ctx.beginPath(); ctx.arc(p.x,p.y,p.r*0.5,0,TAU); ctx.fill(); }
+      ctx.fillStyle = p.role==='gk'? td.gk : td.color; ctx.fill();
+      ctx.lineWidth=2; ctx.strokeStyle='rgba(0,0,0,.55)'; ctx.stroke();
+      // cara de dibujo: pelo detrás + piel al frente
+      ctx.fillStyle=p.hair; ctx.beginPath(); ctx.arc(p.x,p.y,p.r*0.6,0,TAU); ctx.fill();
+      ctx.fillStyle=p.skin; ctx.beginPath();
+      ctx.arc(p.x+Math.cos(p.ang)*p.r*0.14, p.y+Math.sin(p.ang)*p.r*0.14, p.r*0.46,0,TAU); ctx.fill();
+      // nombre
+      ctx.font='bold 10px Arial'; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+      ctx.lineWidth=3; ctx.strokeStyle='rgba(0,0,0,.85)'; ctx.strokeText(p.name, p.x, p.y-p.r-5);
+      ctx.fillStyle='#fff'; ctx.fillText(p.name, p.x, p.y-p.r-5);
     }
     // resaltar al jugador controlado
     if(controlled){ ctx.strokeStyle='#ffe14a'; ctx.lineWidth=3;
