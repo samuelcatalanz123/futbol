@@ -1023,7 +1023,14 @@ resize(); requestAnimationFrame(frame);
 </script>
 
 <script>
-if('serviceWorker' in navigator){ addEventListener('load',function(){ navigator.serviceWorker.register('./sw.js').catch(function(){}); }); }
+if('serviceWorker' in navigator){ addEventListener('load',function(){
+  navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(function(reg){
+    reg.update();                                   // busca versión nueva al abrir
+    setInterval(function(){ reg.update(); }, 60000);
+  }).catch(function(){});
+  var reloaded=false;                               // cuando entra una versión nueva, recarga sola
+  navigator.serviceWorker.addEventListener('controllerchange',function(){ if(reloaded)return; reloaded=true; location.reload(); });
+}); }
 </script>
 </body>
 </html>
